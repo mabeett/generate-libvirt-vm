@@ -3,6 +3,7 @@ generate-libvirt-vm
 
 KVM virtual Machines for Raspberry Pi 4 hosts via Ansible, libvirt and cloud templates.
 
+This role creates a virtual machine which is then accesible via cloud-init drive setup.
 
 Requirements
 ------------
