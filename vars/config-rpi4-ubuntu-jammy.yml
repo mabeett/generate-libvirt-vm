@@ -1,0 +1,7 @@
+---
+
+cimage_rootfs_source_filename: "jammy-server-cloudimg-arm64.img"
+cloud_image_url: "https://cloud-images.ubuntu.com/jammy/20231012/{{ cimage_rootfs_source_filename }}"
+cloud_image_checksum: md5:3b4e723fdd79c1d4ace48797c0ca899a
+cloud_image_file_fmt: qcow2
+

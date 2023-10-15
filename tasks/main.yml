@@ -1,0 +1,110 @@
+---
+- name: "Load variables for {{ host_machine }}-{{ guest_os }}"
+  include_vars:
+    file: "{{ os_vars }}"
+  with_first_found:
+    - "local-config-{{ host_machine }}-{{ guest_os }}.yml"
+    - "config-{{ host_machine }}-{{ guest_os }}.yml"
+  loop_control:
+    loop_var: os_vars
+
+- name: Gather facts about storage pools
+  community.libvirt.virt_pool:
+    command: facts
+  register: facts_pools
+
+- name: Setting img storage path
+  ansible.builtin.set_fact:
+    libvirt_storage_path: "{{ pool.value.path }}"
+  loop: "{{ lookup('ansible.builtin.dict', facts_pools.ansible_facts.ansible_libvirt_pools) }}"
+  when: "volume_pool | string in pool.key"
+  loop_control:
+    loop_var: pool
+
+- setup: gather_subset=!all,!any,min
+  when: (ansible_distribution is not defined) or (ansible_distribution_release is not defined)
+
+- include_tasks: "{{ pkgs }}"
+  with_first_found:
+    - "packages-{{ ansible_distribution | lower }}-{{ ansible_distribution_release | lower }}.yml"
+    - "packages-{{ ansible_distribution | lower }}-default.yml"
+    - "packages-default.yml"
+  loop_control:
+    loop_var: pkgs
+
+
+- name: List all running VMs
+  community.libvirt.virt:
+    command: list_vms
+    state: running
+  register: running_vms
+
+- name: List all VMs
+  community.libvirt.virt:
+    command: list_vms
+  register: defined_vms
+
+- name: If needed create rootfs volume
+  block:
+    - name: "Download volume cloud image {{ cloud_image_url }}"
+      ansible.builtin.get_url:
+        url: "{{ cloud_image_url }}"
+        dest: "{{ rootfs_img_path }}/{{ rootfs_img_file }}"
+        checksum: "{{ cloud_image_checksum }}"
+        owner: "{{ libvirt_file_userowner }}"
+        group: "{{ libvirt_file_groupowner }}"
+    - name: enlarge downloaded volume
+      shell: |
+        qemu-img resize -f {{ cloud_image_file_fmt }} {{ rootfs_img_path }}/{{ rootfs_img_file }} {{ rootfs_img_size }}M &&
+        virsh pool-refresh --pool={{ volume_pool }}
+      poll: 0
+      async: 45000
+      register: enlarge_st
+    - name: enlarge downloaded volume - track
+      async_status:
+        jid: "{{ enlarge_st.ansible_job_id }}"
+      register: job_result
+      until: job_result.finished
+      retries: "{{ wait_enlarge| default(1800) }}"
+  when: not vm_name in defined_vms.list_vms
+
+- name: define cloud-init-drive - user-data
+  ansible.builtin.template:
+    src: "cinit_user-data.yml.j2"
+    dest: "{{ cinit_img_path }}/{{ vm_name }}_cinit_user-data.yml"
+    owner: "{{ libvirt_file_userowner }}"
+    group: "{{ libvirt_file_groupowner }}"
+
+- name: "Get stat {{ cinit_img_path }}/{{ vm_name }}_cinit_user-data.yml"
+  ansible.builtin.stat:
+    path: "{{ cinit_img_path }}/{{ vm_name }}_cinit_user-data.yml"
+    checksum_algorithm: sha1
+  register: user_data_file
+
+- name: define cloud-init-drive - meta-data
+  ansible.builtin.template:
+    src: "cinit_meta-data.yml.j2"
+    dest: "{{ cinit_img_path }}/{{ vm_name }}_cinit_meta-data.yml"
+    owner: "{{ libvirt_file_userowner }}"
+    group: "{{ libvirt_file_groupowner }}"
+  vars:
+    instance_id: "{{ user_data_file.stat.checksum }}"
+  register: cinit_metadata_files
+
+- name: "Get stat {{ cinit_img_path }}/{{ cinit_img_file }}"
+  ansible.builtin.stat:
+    path: "{{ cinit_img_path }}/{{ cinit_img_file }}"
+    checksum_algorithm: sha1
+  register: cinit_disk_file
+
+- name: generate cloud-init drive
+  shell: |
+    cloud-localds -v --filesystem vfat {{ cinit_img_path }}/{{ cinit_img_file }} {{ cinit_img_path }}/{{ vm_name }}_cinit_user-data.yml {{ cinit_img_path }}/{{ vm_name }}_cinit_meta-data.yml &&
+    chown {{ libvirt_file_userowner }}:{{ libvirt_file_groupowner }} {{ cinit_img_path }}/{{ cinit_img_file }} &&
+    virsh pool-refresh --pool={{ volume_pool }}
+  when: cinit_metadata_files.changed or ( cinit_disk_file.stat.exists == False )
+
+- name: "Define vm from xml ( host_machine={{ host_machine }} )"
+  community.libvirt.virt:
+    command: define
+    xml: "{{ lookup('template', 'vm_template-'+host_machine+'.xml.j2') }}"

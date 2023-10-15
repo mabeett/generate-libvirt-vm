@@ -1,0 +1,25 @@
+---
+
+- name: install libvirt
+  apt:
+    name:
+     - qemu-kvm
+     - libvirt-daemon-system
+     - python3-libvirt
+     - python3-lxml
+     - cloud-image-utils
+     - mtools
+    state: latest
+    update_cache: yes
+  when: install_package | default(True)
+  poll: 0
+  async: 45000
+  register: apt_st
+- name: install libvirt - track status
+  async_status:
+    jid: "{{ apt_st.ansible_job_id }}"
+  register: job_result
+  until: job_result.finished
+  retries: "{{ wait_apt | default(1800) }}"
+  when: install_packages | default(True)
+

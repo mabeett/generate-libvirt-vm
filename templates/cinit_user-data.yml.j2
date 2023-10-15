@@ -1,0 +1,27 @@
+#cloud-config
+hostname: {{ vm_name }}
+{% if cinit_password is defined %}
+password: {{ cinit_password | password_hash('sha512', 'mysecretsalt') }}
+chpasswd:
+  expire: False
+{% endif %}
+{% if cinit_authorized_keys is defined and cinit_authorized_keys.__class__.__name__ == 'list' and 0 < ( cinit_authorized_keys | length ) %}
+ssh_authorized_keys:
+{% for k in cinit_authorized_keys %}
+  - {{ k }}
+{% endfor %}
+{% endif %}
+users:
+  - {{ vm_user | default('default') }}
+{% if package_upgraded is defined %}
+package_upgrade: {{ package_upgrade }}a
+{% endif %}
+{% if runcmd is defined and  runcmd.__class__.__name__ == 'list' and 0 < ( runcmd | length ) %}
+runcmd:
+{% for k in runcmd %}
+  - {{ k }}
+{% endfor %}
+{% endif %}
+{% if cinit_keys is defined and cinit_keys.__class__.__name__ == 'dict' and 0 < ( cinit_keys | length ) %}
+{{ cinit_keys | to_nice_yaml }}
+{% endif %}

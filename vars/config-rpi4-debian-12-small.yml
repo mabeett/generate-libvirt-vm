@@ -1,0 +1,7 @@
+---
+
+cimage_rootfs_source_filename: "debian-12-genericcloud-arm64.qcow2"
+cloud_image_url: "https://cloud.debian.org/images/cloud/bookworm/latest/{{ cimage_rootfs_source_filename }}"
+cloud_image_checksum: sha512:b3754e8c4b474fad2f0bb6d483158cc8e6661cf481dcd7a8c55cc128acb4cd2d829d4afe024462ae45028f33ab977d69737d820c8f6c56800cc133cdcfb5874d
+cloud_image_file_fmt: qcow2
+

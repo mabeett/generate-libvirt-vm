@@ -1,0 +1,49 @@
+---
+# vm_title: "wip ubuntu jammy {{ ansible_date_time.date }}"
+
+vm_name: "{{ vm_title | regex_replace ('[^A-Za-z0-9]', '-') }}"
+vm_description: |
+  {{ vm_title }}
+  generated automatically via ansible
+
+# libvirt  volume  on which tne files will be installed
+volume_pool: default
+
+## Cloud-init Settings
+
+## password for the default user
+# cinit_password: h4ck3r
+
+## ssh keys for the default user
+# cinit_authorized_keys:
+#   - ssh-rsa AAA.. foo@bar
+
+runcmd: []
+
+## optional dict cloud-init keys
+# cinit_keys:
+#  password: h4ck3r
+#  chpasswd:
+#   expire: False
+#  ssh_authorized_keys:
+#    - ssh-rsa AAA.. foo@bar
+
+# path on which the main (rootfs) drive is located
+rootfs_img_path: "{{ libvirt_storage_path }}"
+# name for the main (rootfs)a file
+rootfs_img_file: "{{ vm_name }}_{{ cimage_rootfs_source_filename }}"
+
+# path on which the cloud-init drive is located
+cinit_img_path: "{{ libvirt_storage_path }}"
+# name for the cloud-init (rootfs)a file
+cinit_img_file: "{{ vm_name }}_cinit.raw"
+
+rootfs_img_size: "{{ 1024 * 8 }}"
+vm_memory: 512
+vm_vcpus: 1
+
+# qemu-img files ownership
+libvirt_file_userowner: libvirt-qemu
+libvirt_file_groupowner: kvm
+
+
