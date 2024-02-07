@@ -27,7 +27,7 @@
 - name: Setting img storage path
   ansible.builtin.set_fact:
     libvirt_storage_path: "{{ pool.value.path }}"
-  loop: "{{ lookup('ansible.builtin.dict', facts_pools.ansible_facts.ansible_libvirt_pools) }}"
+  loop: "{{ lookup('ansible.builtin.dict', facts_pools.ansible_facts.ansible_libvirt_pools, wantlist=True) }}"
   when: "volume_pool | string in pool.key"
   loop_control:
     loop_var: pool
