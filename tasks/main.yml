@@ -8,6 +8,17 @@
   loop_control:
     loop_var: os_vars
 
+- setup: gather_subset=!all,!any,min
+  when: (ansible_distribution is not defined) or (ansible_distribution_release is not defined)
+
+- include_tasks: "{{ pkgs }}"
+  with_first_found:
+    - "packages-{{ ansible_distribution | lower }}-{{ ansible_distribution_release | lower }}.yml"
+    - "packages-{{ ansible_distribution | lower }}-default.yml"
+    - "packages-default.yml"
+  loop_control:
+    loop_var: pkgs
+
 - name: Gather facts about storage pools
   community.libvirt.virt_pool:
     command: facts
@@ -20,18 +31,6 @@
   when: "volume_pool | string in pool.key"
   loop_control:
     loop_var: pool
-
-- setup: gather_subset=!all,!any,min
-  when: (ansible_distribution is not defined) or (ansible_distribution_release is not defined)
-
-- include_tasks: "{{ pkgs }}"
-  with_first_found:
-    - "packages-{{ ansible_distribution | lower }}-{{ ansible_distribution_release | lower }}.yml"
-    - "packages-{{ ansible_distribution | lower }}-default.yml"
-    - "packages-default.yml"
-  loop_control:
-    loop_var: pkgs
-
 
 - name: List all running VMs
   community.libvirt.virt:
