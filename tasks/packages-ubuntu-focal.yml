@@ -25,3 +25,12 @@
   retries: "{{ wait_apt | default(1800) }}"
   when: install_packages | default(True)
 
+- name: Ensure user is added to the libvirt group
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups:
+      - libvirt-qemu
+      - libvirt
+    append: true
+  with_items:
+   - "{{ ansible_user }}"
