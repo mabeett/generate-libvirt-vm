@@ -19,6 +19,17 @@
   loop_control:
     loop_var: pkgs
 
+# TODO:
+#  - implement via ansible module
+#  - create the pool in case it does not exist and only
+- name: be sure of libvirt
+  shell: |
+    set -x
+    sudo virsh pool-define-as default --type dir --target /var/lib/libvirt/images
+    sudo virsh pool-build default
+    sudo virsh pool-start default
+    sudo virsh pool-autostart default
+
 - name: Gather facts about storage pools
   community.libvirt.virt_pool:
     command: facts
