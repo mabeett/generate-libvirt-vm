@@ -12,6 +12,7 @@
      - dosfstools
     state: latest
     update_cache: yes
+    cache_valid_time: 3600
   when: install_package | default(True)
   poll: 0
   async: 45000
