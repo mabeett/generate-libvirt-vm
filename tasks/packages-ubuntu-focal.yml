@@ -1,7 +1,7 @@
 ---
 
 - name: install libvirt
-  apt:
+  ansible.builtin.apt:
     name:
      - qemu-kvm
      - libvirt-daemon-system
