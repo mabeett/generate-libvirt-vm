@@ -66,11 +66,26 @@
 
 - name: If needed create rootfs volume
   block:
+    - name: get checksum files
+      ansible.builtin.uri:
+        url: "{{ cloud_image_checksum_url }}"
+        return_content: true
+      register: chksum
+      when: cloud_image_checksum is undefined
+    - ansible.builtin.set_fact:
+        reg: ".*{{ cimage_rootfs_source_filename }}$"
+      when: cloud_image_checksum is undefined
+    - name: define var checksum 2
+      ansible.builtin.set_fact:
+        cloud_image_checksum2: '{{ cloud_image_checksum if cloud_image_checksum is defined else cloud_image_checksum_url_type ~ ":" ~ chksum.content.splitlines() | select("match", reg) | first | split | first }}'
+    - name: Print return information from the previous task
+      ansible.builtin.debug:
+        var: cloud_image_checksum2
     - name: "Download volume cloud image {{ cloud_image_url }}"
       ansible.builtin.get_url:
         url: "{{ cloud_image_url }}"
         dest: "{{ rootfs_img_path }}/{{ rootfs_img_file }}"
-        checksum: "{{ cloud_image_checksum }}"
+        checksum: "{{ cloud_image_checksum2 }}"
         owner: "{{ libvirt_file_userowner }}"
         group: "{{ libvirt_file_groupowner }}"
     - name: enlarge downloaded volume

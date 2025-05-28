@@ -3,6 +3,7 @@
 cimage_rootfs_source_filename: "debian-12-genericcloud-amd64.qcow2"
 # cloud_image_url: "https://cloud.debian.org/images/cloud/bookworm/latest/{{ cimage_rootfs_source_filename }}"
 cloud_image_url: "http://192.168.0.21/cloud-images/{{ cimage_rootfs_source_filename }}"
-cloud_image_checksum: sha512:c6b12eaf0a74397ed55d0d74d48a35e5eb187ab415e666fd3d67e91361d1f7ffc594df7735a32ae8f7124db78848e3eea069ca2bcdab43f6ab100b87129e1cf1
+cloud_image_checksum_url: "https://cloud.debian.org/images/cloud/bookworm/latest/SHA512SUMS"
+cloud_image_checksum_url_type: sha512
 cloud_image_file_fmt: qcow2
 
