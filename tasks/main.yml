@@ -8,19 +8,6 @@
   loop_control:
     loop_var: os_vars
 
-- name: Gather facts about storage pools
-  community.libvirt.virt_pool:
-    command: facts
-  register: facts_pools
-
-- name: Setting img storage path
-  ansible.builtin.set_fact:
-    libvirt_storage_path: "{{ pool.value.path }}"
-  loop: "{{ lookup('ansible.builtin.dict', facts_pools.ansible_facts.ansible_libvirt_pools) }}"
-  when: "volume_pool | string in pool.key"
-  loop_control:
-    loop_var: pool
-
 - setup: gather_subset=!all,!any,min
   when: (ansible_distribution is not defined) or (ansible_distribution_release is not defined)
 
@@ -32,6 +19,39 @@
   loop_control:
     loop_var: pkgs
 
+- name: List available pools
+  community.libvirt.virt_pool:
+    command: list_pools
+  register: pools
+- name: "If needed create pool {{ volume_pool }}"
+  block:
+    - name: "Define vm from xml ( host_machine={{ volume_pool }} )"
+      community.libvirt.virt_pool:
+        command: define
+        name: "{{ volume_pool }}"
+        xml: "{{ lookup('template', 'pool_definition.xml.j2') }}"
+    - name: "Start {{ volume_pool }} storage pool"
+      community.libvirt.virt_pool:
+        command: create
+        name: "{{ volume_pool }}"
+    - name: "Ensure {{ volume_pool }} pool will be started at boot"
+      community.libvirt.virt_pool:
+        autostart: true
+        name: "{{ volume_pool }}"
+  when: not ( volume_pool | string ) in pools.list_pools
+
+- name: Gather facts about storage pools
+  community.libvirt.virt_pool:
+    command: facts
+  register: facts_pools
+
+- name: Setting img storage path
+  ansible.builtin.set_fact:
+    libvirt_storage_path: "{{ pool.value.path }}"
+  loop: "{{ lookup('ansible.builtin.dict', facts_pools.ansible_facts.ansible_libvirt_pools, wantlist=True) }}"
+  when: "volume_pool | string in pool.key"
+  loop_control:
+    loop_var: pool
 
 - name: List all running VMs
   community.libvirt.virt:
@@ -46,11 +66,26 @@
 
 - name: If needed create rootfs volume
   block:
+    - name: get checksum files
+      ansible.builtin.uri:
+        url: "{{ cloud_image_checksum_url }}"
+        return_content: true
+      register: chksum
+      when: cloud_image_checksum is undefined
+    - ansible.builtin.set_fact:
+        reg: ".*{{ cimage_rootfs_source_filename }}$"
+      when: cloud_image_checksum is undefined
+    - name: define var checksum 2
+      ansible.builtin.set_fact:
+        cloud_image_checksum2: '{{ cloud_image_checksum if cloud_image_checksum is defined else cloud_image_checksum_url_type ~ ":" ~ chksum.content.splitlines() | select("match", reg) | first | split | first }}'
+    - name: Print return information from the previous task
+      ansible.builtin.debug:
+        var: cloud_image_checksum2
     - name: "Download volume cloud image {{ cloud_image_url }}"
       ansible.builtin.get_url:
         url: "{{ cloud_image_url }}"
         dest: "{{ rootfs_img_path }}/{{ rootfs_img_file }}"
-        checksum: "{{ cloud_image_checksum }}"
+        checksum: "{{ cloud_image_checksum2 }}"
         owner: "{{ libvirt_file_userowner }}"
         group: "{{ libvirt_file_groupowner }}"
     - name: enlarge downloaded volume

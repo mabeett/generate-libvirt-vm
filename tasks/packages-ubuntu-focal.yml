@@ -1,7 +1,7 @@
 ---
 
 - name: install libvirt
-  apt:
+  ansible.builtin.apt:
     name:
      - qemu-kvm
      - libvirt-daemon-system
@@ -9,12 +9,15 @@
      - python3-lxml
      - cloud-image-utils
      - mtools
+     - dosfstools
     state: latest
     update_cache: yes
-  when: install_package | default(True)
+    cache_valid_time: 3600
+  when: install_packages | default(True)
   poll: 0
   async: 45000
   register: apt_st
+
 - name: install libvirt - track status
   async_status:
     jid: "{{ apt_st.ansible_job_id }}"
@@ -23,3 +26,12 @@
   retries: "{{ wait_apt | default(1800) }}"
   when: install_packages | default(True)
 
+- name: Ensure user is added to the libvirt group
+  ansible.builtin.user:
+    name: "{{ item }}"
+    groups:
+      - libvirt-qemu
+      - libvirt
+    append: true
+  with_items:
+   - "{{ ansible_user }}"
